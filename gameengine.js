@@ -69,18 +69,23 @@ GameEngine.prototype.startInput = function () {
 
     //move right
     this.ctx.canvas.addEventListener("keydown", function (e) {
-    	if (e.code === 'KeyD') { that.forward = true;}
+    	if (e.code === 'KeyD' && !that.forward) {
+    	    that.forward = true;
+    	    that.moving = true;
+    	}
     	e.preventDefault();
     }, false);
-
-    /*this.ctx.canvas.addEventListener("keyup", function (e) {
-    	if (e.code === 'KeyD') { that.forward = false;}
-    	e.preventDefault();
-    }, false);*/
 
     //move left
     this.ctx.canvas.addEventListener("keydown", function (e) {
     	if (e.code === 'KeyA') { that.backward = true;}
+    	e.preventDefault();
+    }, false);
+
+
+    this.ctx.canvas.addEventListener("keyup", function (e) {
+    	//this.clockTick = 0;
+    	that.moving = false;
     	e.preventDefault();
     }, false);
 
@@ -126,6 +131,8 @@ GameEngine.prototype.loop = function () {
     this.space = null;
     this.forward = null;
     this.backward = null;
+    this.moving = null;
+    this.stop = null;
 }
 
 function Entity(game, x, y) {

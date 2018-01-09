@@ -12,45 +12,56 @@ function Animation(spriteSheet, startX, startY, frameWidth, frameHeight, frameDu
     this.reverse = reverse;
 }
 
-Animation.prototype.drawFrame = function (tick, ctx, x, y, scaleBy) {
-    var scaleBy = scaleBy || 1;
-    this.elapsedTime += tick;
-    if (this.loop) {
-        if (this.isDone()) {
-            this.elapsedTime = 0;
+Animation.prototype.drawFrame = function (game, tick, ctx, x, y, scaleBy) {
+    if (!game.stop) {
+        //console.log("drawing frame");
+        var scaleBy = scaleBy || 1;
+        this.elapsedTime += tick;
+        if (this.loop) {
+            if (this.isDone()) {
+                this.elapsedTime = 0;
+            }
+        } else if (this.isDone()) {
+            return;
         }
-    } else if (this.isDone()) {
-        return;
-    }
-    //var index = this.reverse ? this.frames - this.currentFrame() - 1 : this.currentFrame();
-    var index = this.currentFrame();
-    var vindex = 0;
-    //console.log(this.spriteSheet.width);
-    if ((index + 1) * this.frameWidth + this.startX > this.spriteSheet.width) {
-        index -= Math.floor((this.spriteSheet.width - this.startX) / this.frameWidth);
-        vindex++;
-    }
-    while ((index + 1) * this.frameWidth > this.spriteSheet.width) {
-        index -= Math.floor(this.spriteSheet.width / this.frameWidth);
-        vindex++;
-    }
+        //var index = this.reverse ? this.frames - this.currentFrame() - 1 : this.currentFrame();
 
-    var locX = x;
-    var locY = y;
-    var offset = vindex === 0 ? this.startX : 0;
-    //console.log(index * this.frameWidth + offset);
-    //window.stop();
+        var originalFrame = this.currentFrame();
+        var index = originalFrame;
+        var vindex = 0;
+        if ((index + 1) * this.frameWidth + this.startX > this.spriteSheet.width) {
+            index -= Math.floor((this.spriteSheet.width - this.startX) / this.frameWidth);
+            vindex++;
+        }
+        while ((index + 1) * this.frameWidth > this.spriteSheet.width) {
+            index -= Math.floor(this.spriteSheet.width / this.frameWidth);
+            vindex++;
+        }
 
-    if (!this.reverse) {
-        ctx.drawImage(this.spriteSheet,
-                      index * this.frameWidth + offset, vindex * this.frameHeight + this.startY,  // source from sheet
-                      this.frameWidth, this.frameHeight,
-                      locX, locY,
-                      this.frameWidth * scaleBy,
-                      this.frameHeight * scaleBy);
+        var locX = x;
+        var locY = y;
+        var offset = vindex === 0 ? this.startX : 0;
+
+        if (!this.reverse) {
+            //console.log(index === this.frames - 1);
+            if (index === (this.frames - 1) && game.moving) {
+                console.log("in here");
+                index = originalFrame;
+                this.elapsedTime = 0;
+                vindex = 0;
+            }
+            ctx.drawImage(this.spriteSheet,
+                          index * this.frameWidth + offset, vindex * this.frameHeight + this.startY,  // source from sheet
+                          this.frameWidth, this.frameHeight,
+                          locX, locY,
+                          this.frameWidth * scaleBy,
+                          this.frameHeight * scaleBy);
+        } else {
+            flipSpriteHorizontally(ctx, this.spriteSheet, locX, locY, index * this.frameWidth + offset, 
+                vindex * this.frameHeight + this.startY, this.frameWidth, this.frameHeight);
+        }
     } else {
-        flipSpriteHorizontally(ctx, this.spriteSheet, locX, locY, index * this.frameWidth + offset, 
-            vindex * this.frameHeight + this.startY, this.frameWidth, this.frameHeight);
+        //game.stop = false;
     }
 }
 
@@ -106,11 +117,11 @@ function Unicorn(game) {
     //this.jumpAnimation = new Animation(ASSET_MANAGER.getAsset("./img/RobotUnicorn.png"), 618, 334, 174, 138, 0.02, 40, false, true);
 
                                                         //spriteSheet, startX, startY, frameWidth, frameHeight, frameDuration, frames, loop, reverse
-    this.idleAnimation = new Animation(ASSET_MANAGER.getAsset("./img/hero_spritesheet.png"), 0, 0, 80, 100, 0.1, 8, true, false);
-    this.idleBackwardAnimation = new Animation(ASSET_MANAGER.getAsset("./img/hero_spritesheet.png"), 0, 0, 80, 100, 0.1, 8, true, true);
-    this.walkForwardAnimation = new Animation(ASSET_MANAGER.getAsset("./img/hero_spritesheet.png"), 0, 100, 80, 100, 0.1, 6, false, false);
-    this.walkBackwardAnimation = new Animation(ASSET_MANAGER.getAsset("./img/hero_spritesheet.png"), 0, 100, 80, 100, 0.1, 6, false, true);
-    this.jumpAnimation = new Animation(ASSET_MANAGER.getAsset("./img/hero_spritesheet.png"), 0, 280, 80, 100, 0.1, 3, false, false);
+    this.idleAnimation = new Animation(ASSET_MANAGER.getAsset("./img/Kevin_Idle.png"), 0, 0, 64, 64, 0.1, 10, true, false);
+    this.idleBackwardAnimation = new Animation(ASSET_MANAGER.getAsset("./img/Kevin_Idle.png"), 0, 0, 64, 64, 0.1, 10, true, true);
+    this.walkForwardAnimation = new Animation(ASSET_MANAGER.getAsset("./img/Kevin_Walking.png"), 0, 0, 64, 64, 0.1,  2, false, false);
+    this.walkBackwardAnimation = new Animation(ASSET_MANAGER.getAsset("./img/Kevin_Walking.png"), 0, 0, 64, 64, 0.1,  4, false, true);
+    this.jumpAnimation = new Animation(ASSET_MANAGER.getAsset("./img/hero_spritesheet.png"), 80, 280, 80, 100, 0.25, 2, false, false);
     this.jumping = false;
     this.walkingForward = false;
     this.walkingBackward = false;
@@ -125,19 +136,24 @@ Unicorn.prototype = new Entity();
 Unicorn.prototype.constructor = Unicorn;
 
 Unicorn.prototype.update = function () {
-    if (this.game.space) {
+    if (!this.game.stop) {
+        if (this.game.space) {
         this.jumping = true;
     }
 
     if (this.game.forward) {
         this.walkingForward = true;
+        //this.clear();
+        //this.game.forward = false;
     }
 
     if (this.game.backward) {
         this.walkingBackward = true;
+        //this.clear();
+        this.game.backward = false;
     }
 
-    if (this.jumping && !this.walkingForward && !this.walkingBackward) {
+    if (this.jumping) {
         if (this.jumpAnimation.isDone()) {
             this.jumpAnimation.elapsedTime = 0;
             this.jumping = false;
@@ -153,7 +169,7 @@ Unicorn.prototype.update = function () {
         this.y = this.ground - height;
     }
 
-    if (this.walkingForward && !this.jumping && !this.walkingBackward) {
+    if (this.walkingForward) {
         if (this.walkForwardAnimation.isDone()) {
             this.walkForwardAnimation.elapsedTime = 0;
             this.walkingForward = false;
@@ -169,7 +185,7 @@ Unicorn.prototype.update = function () {
         this.x = this.x + distance;
     }
 
-    if (this.walkingBackward && !this.jumping && !this.walkingForward) {
+    if (this.walkingBackward) {
         if (this.walkBackwardAnimation.isDone()) {
             this.walkBackwardAnimation.elapsedTime = 0;
             this.walkingBackward = false;
@@ -185,28 +201,40 @@ Unicorn.prototype.update = function () {
         this.x = this.x - distance;
     }
     Entity.prototype.update.call(this);
+    }
+    //console.log("made it after return");
+    
+}
+
+Unicorn.prototype.clear = function () {
+    this.walkForwardAnimation.elapsedTime = 0;
+    this.walkBackwardAnimation.elapsedTime = 0;
 }
 
 Unicorn.prototype.draw = function (ctx) {
-    if (this.jumping) {
-        this.jumpAnimation.drawFrame(this.game.clockTick, ctx, this.x, this.y);
+    if (!this.game.stop) {
+        if (this.jumping) {
+        this.jumpAnimation.drawFrame(this.game, this.game.clockTick, ctx, this.x, this.y);
     }
     else if (this.walkingForward) {
-        this.walkForwardAnimation.drawFrame(this.game.clockTick, ctx, this.x, this.y);
+        this.walkForwardAnimation.drawFrame(this.game, this.game.clockTick, ctx, this.x, this.y);
         this.turnedAround = false;
     }
     else if (this.walkingBackward) {
-        this.walkBackwardAnimation.drawFrame(this.game.clockTick, ctx, this.x, this.y);
+        this.walkBackwardAnimation.drawFrame(this.game, this.game.clockTick, ctx, this.x, this.y);
         this.turnedAround = true;
     }
     else {
         if (this.turnedAround) {
-            this.idleBackwardAnimation.drawFrame(this.game.clockTick, ctx, this.x, this.y);
+            this.idleBackwardAnimation.drawFrame(this.game, this.game.clockTick, ctx, this.x, this.y);
         } else {
-            this.idleAnimation.drawFrame(this.game.clockTick, ctx, this.x, this.y);
+            this.idleAnimation.drawFrame(this.game, this.game.clockTick, ctx, this.x, this.y);
         }
     }
     Entity.prototype.draw.call(this);
+    }
+
+    
 }
 
 // the "main" code begins here
@@ -215,6 +243,8 @@ var ASSET_MANAGER = new AssetManager();
 
 //ASSET_MANAGER.queueDownload("./img/RobotUnicorn.png");
 ASSET_MANAGER.queueDownload("./img/hero_spritesheet.png");
+ASSET_MANAGER.queueDownload("./img/Kevin_Idle.png");
+ASSET_MANAGER.queueDownload("./img/Kevin_Walking.png");
 
 ASSET_MANAGER.downloadAll(function () {
     console.log("starting up da sheild");
